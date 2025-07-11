@@ -3,11 +3,11 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, addDoc, updateDoc, deleteDoc, query, writeBatch, getDocs, runTransaction, arrayUnion } from 'firebase/firestore';
 import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
-import { Droplets, Wrench, Package, Factory, Users, Trash2, Edit, PlusCircle, Share2, ChevronLeft, ShoppingCart, History, Plus, Minus, X, AlertTriangle, UploadCloud, FileDown, FileUp, Settings, CheckCircle, KeyRound, Eye, EyeOff, LogIn, Cake, Clock, MessageSquareWarning, ClipboardList } from 'lucide-react';
+// Removed unused icons: Eye, EyeOff, LogIn
+import { Droplets, Wrench, Package, Factory, Users, Trash2, Edit, PlusCircle, Share2, ChevronLeft, ShoppingCart, History, Plus, Minus, X, AlertTriangle, UploadCloud, FileDown, FileUp, Settings, CheckCircle, KeyRound, Cake, Clock, MessageSquareWarning, ClipboardList } from 'lucide-react';
 
 // --- Firebase Configuration ---
 // This new version reads configuration from Netlify's Environment Variables
-// It is important that you add these variables in your Netlify settings
 const firebaseConfigString = process.env.REACT_APP_FIREBASE_CONFIG;
 let firebaseConfig = {};
 if (firebaseConfigString) {
@@ -101,7 +101,6 @@ export default function App() {
     // --- Data Subscription Effect ---
     useEffect(() => {
         if (!isAuthReady || !db) {
-            // If the database isn't ready, stop loading and show any existing error.
             if (!error) {
                 setLoading(false);
             }
@@ -141,7 +140,7 @@ export default function App() {
             unsubscribers.forEach(unsub => unsub());
             clearTimeout(timer);
         };
-    }, [isAuthReady, error]); // Added error to dependency array
+    }, [isAuthReady, error]);
 
     // --- Initial Data Seeding ---
     useEffect(() => {
@@ -211,7 +210,6 @@ export default function App() {
 }
 
 // --- Components ---
-// (The rest of the components are unchanged. Paste them here from the previous version)
 
 const Dashboard = ({ navigate, maintenanceLogs, machineLogs }) => {
     const overdueMaintenance = maintenanceLogs.filter(log => {
@@ -954,7 +952,8 @@ const SaleForm = ({ stock, onFinish }) => {
             await runTransaction(db, async (transaction) => {
                 const stockDoc = await transaction.get(stockDocRef);
                 if (!stockDoc.exists()) {
-                    throw "Stock document does not exist!";
+                    // Fixed ESLint error: throw an Error object
+                    throw new Error("Stock document does not exist!");
                 }
                 const currentStock = stockDoc.data();
                 const newStock = { ...currentStock };
@@ -1087,7 +1086,8 @@ const StockUpdateForm = ({ stock, type, onFinish }) => {
             await runTransaction(db, async (transaction) => {
                 const stockDoc = await transaction.get(stockDocRef);
                 if (!stockDoc.exists()) {
-                    throw "Stock document does not exist!";
+                    // Fixed ESLint error: throw an Error object
+                    throw new Error("Stock document does not exist!");
                 }
 
                 const newStock = JSON.parse(JSON.stringify(stockDoc.data()));
