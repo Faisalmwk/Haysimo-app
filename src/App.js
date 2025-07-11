@@ -6,11 +6,13 @@ import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage"
 import { Droplets, Wrench, Package, Factory, Users, Trash2, Edit, PlusCircle, Share2, ChevronLeft, ShoppingCart, History, Plus, Minus, X, AlertTriangle, UploadCloud, FileDown, FileUp, Settings, CheckCircle, KeyRound, Eye, EyeOff, LogIn, Cake, Clock, MessageSquareWarning, ClipboardList } from 'lucide-react';
 
 // --- Firebase Configuration ---
+// This check is necessary for Netlify deployment
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'haysimo-default';
 
 // --- Initialize Firebase ---
 let app, db, auth, storage;
+// Only initialize if the config is valid
 if (firebaseConfig && Object.keys(firebaseConfig).length > 0) {
     try {
         app = initializeApp(firebaseConfig);
@@ -64,8 +66,9 @@ export default function App() {
 
     // --- Authentication Effect ---
     useEffect(() => {
+        // If Firebase is not configured, show an error
         if (!auth) {
-            setError("Firebase is not configured. The app cannot start.");
+            setError("Firebase is not configured. The app cannot start. Please contact the administrator.");
             setLoading(false);
             return;
         }
@@ -74,6 +77,7 @@ export default function App() {
                 setIsAuthReady(true);
             } else {
                 try {
+                    // This check is necessary for Netlify deployment
                     const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
                     if (token) await signInWithCustomToken(auth, token);
                     else await signInAnonymously(auth);
@@ -118,12 +122,18 @@ export default function App() {
             }),
         ];
         
-        return () => unsubscribers.forEach(unsub => unsub());
+        // Ensure loading is set to false after a delay
+        const timer = setTimeout(() => setLoading(false), 1500);
+
+        return () => {
+            unsubscribers.forEach(unsub => unsub());
+            clearTimeout(timer);
+        };
     }, [isAuthReady]);
 
     // --- Initial Data Seeding ---
     useEffect(() => {
-        if (isAuthReady && machineTypes.length === 0) {
+        if (isAuthReady && machineTypes.length === 0 && db) {
             initializeMachineTypes();
         }
     }, [isAuthReady, machineTypes]);
@@ -163,7 +173,7 @@ export default function App() {
         }
     };
     
-    if (loading || !isAuthReady) return <div className="flex justify-center items-center h-screen bg-gray-100"><div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div></div>;
+    if (loading) return <div className="flex justify-center items-center h-screen bg-gray-100"><div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div></div>;
     if (error) return <div className="flex justify-center items-center h-screen bg-red-100 text-red-800 p-4 text-center"><div><h1 className="text-2xl font-bold">Application Error</h1><p>{error}</p></div></div>;
     
     return (
@@ -245,11 +255,12 @@ const ComplaintRegister = ({ machineLogs, navigate }) => {
     const resolvedComplaints = complaints.filter(c => c.status === 'resolved');
 
     const handleResolveComplaint = async (logId) => {
+        if (!db) return;
         await updateDoc(doc(db, `artifacts/${appId}/public/data/machine_logs`, logId), { status: 'resolved' });
     };
     
     const handleSaveReply = async (logId) => {
-        if (!replyText.trim()) return;
+        if (!db || !replyText.trim()) return;
         const complaintRef = doc(db, `artifacts/${appId}/public/data/machine_logs`, logId);
         await updateDoc(complaintRef, {
             replies: arrayUnion({
@@ -341,6 +352,7 @@ const PasswordManagement = ({ navigate }) => {
     const [message, setMessage] = useState('');
 
     const handleSave = async (type) => {
+        if (!db) return;
         const passwordRef = doc(db, `artifacts/${appId}/public/data/settings`, 'passwords');
         let newPassword = '';
         let fieldToUpdate = '';
@@ -445,7 +457,7 @@ const EmployeeManagement = ({ employees, navigate }) => {
     const [deleteId, setDeleteId] = useState(null);
     const handleEdit = (employee) => { setEditingEmployee(employee); setShowForm(true); };
     const confirmDelete = (id) => { setDeleteId(id); setShowConfirm(true); };
-    const handleDelete = async () => { if (deleteId) { await deleteDoc(doc(db, `artifacts/${appId}/public/data/employees`, deleteId)); setShowConfirm(false); setDeleteId(null); } };
+    const handleDelete = async () => { if (db && deleteId) { await deleteDoc(doc(db, `artifacts/${appId}/public/data/employees`, deleteId)); setShowConfirm(false); setDeleteId(null); } };
     const handleAddNew = () => { setEditingEmployee(null); setShowForm(true); };
     return (<div>{showConfirm && (<div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4"><div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm"><h3 className="text-lg font-bold mb-4">Are you sure?</h3><p className="text-gray-600 mb-6">Do you really want to delete this employee?</p><div className="flex justify-end space-x-4"><button onClick={() => setShowConfirm(false)} className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Cancel</button><button onClick={handleDelete} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Delete</button></div></div></div>)}<div className="flex justify-between items-center mb-6"><button onClick={() => navigate('dashboard')} className="flex items-center text-blue-600 hover:underline"><ChevronLeft size={20}/> Back</button><h2 className="text-2xl font-bold text-gray-800">Employees</h2><button onClick={handleAddNew} className="bg-blue-500 text-white p-2 rounded-full shadow-lg hover:bg-blue-600"><PlusCircle/></button></div>{showForm ? (<EmployeeForm employee={editingEmployee} onFinish={() => setShowForm(false)} />) : (<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{employees.map(emp => (<div key={emp.id} className="bg-white rounded-xl shadow-lg overflow-hidden relative group"><div className="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity z-10"><button onClick={() => handleEdit(emp)} className="p-2 bg-white/70 rounded-full text-blue-600 hover:bg-white"><Edit size={18}/></button><button onClick={() => confirmDelete(emp.id)} className="p-2 bg-white/70 rounded-full text-red-600 hover:bg-white"><Trash2 size={18}/></button></div><div className="flex items-center p-5"><img src={emp.photoUrl || `https://placehold.co/100x100/E0E7FF/4F46E5?text=${emp.name.charAt(0)}`} alt={emp.name} className="w-24 h-24 rounded-full object-cover border-4 border-blue-100"/><div className="ml-5"><h3 className="font-bold text-xl text-gray-900">{emp.name}</h3><div className="mt-2 space-y-1 text-sm text-gray-600"><div className="flex items-center"><Cake size={14} className="mr-2 text-gray-400"/><span>Age: {calculateAge(emp.dob)}</span></div><div className="flex items-center"><Clock size={14} className="mr-2 text-gray-400"/><span>{emp.workingTime}</span></div></div></div></div></div>))}</div>)}</div>);
 };
@@ -471,6 +483,10 @@ const EmployeeForm = ({ employee, onFinish }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!db || !storage) {
+            setUploadError("Firebase is not configured correctly.");
+            return;
+        }
         setIsUploading(true);
         setUploadError(null);
         let finalPhotoUrl = formData.photoUrl;
@@ -524,6 +540,7 @@ const MachineDashboard = ({ employees, machineTypes, machineLogs, navigate }) =>
 
     const handleAddLog = (machineName) => { setSelectedMachine(machineName); setView('form'); };
     const handleResolveComplaint = async (logId) => {
+        if (!db) return;
         await updateDoc(doc(db, `artifacts/${appId}/public/data/machine_logs`, logId), { status: 'resolved' });
     };
 
@@ -549,16 +566,16 @@ const ManageMachines = ({ machineTypes, onBack }) => {
     const [editingId, setEditingId] = useState(null);
     const [editingName, setEditingName] = useState('');
 
-    const handleAdd = async () => { if (newMachineName.trim()) { await addDoc(collection(db, `artifacts/${appId}/public/data/machines`), { name: newMachineName.trim() }); setNewMachineName(''); } };
+    const handleAdd = async () => { if (db && newMachineName.trim()) { await addDoc(collection(db, `artifacts/${appId}/public/data/machines`), { name: newMachineName.trim() }); setNewMachineName(''); } };
     
     const handleDelete = async (id) => { 
-        if (window.confirm('Are you sure you want to delete this machine type?')) {
+        if (db && window.confirm('Are you sure you want to delete this machine type?')) {
             await deleteDoc(doc(db, `artifacts/${appId}/public/data/machines`, id)); 
         }
     };
 
     const handleUpdate = async (id) => {
-        if (editingName.trim()) {
+        if (db && editingName.trim()) {
             await updateDoc(doc(db, `artifacts/${appId}/public/data/machines`, id), { name: editingName.trim() });
             setEditingId(null);
             setEditingName('');
@@ -603,6 +620,7 @@ const MachineLogForm = ({ machineName, employees, onFinish }) => {
     
     const handleSubmit = async (e) => { 
         e.preventDefault(); 
+        if (!db) return;
         const isMaintenanceLog = logType === 'Maintenance' || logType === 'Oil Change';
 
         if (isMaintenanceLog) {
@@ -658,6 +676,7 @@ const Maintenance = ({ employees, machineTypes, logs, navigate }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!db) return;
         const formData = new FormData(e.target);
         const logData = { machine: formData.get('machine'), oilCheck: formData.get('oilCheck') === 'on', greaseCheck: formData.get('greaseCheck') === 'on', labourName: formData.get('labourName'), date: formData.get('date'), time: formData.get('time'), details: formData.get('details'), timestamp: new Date(`${formData.get('date')}T${formData.get('time')}`), };
         await addDoc(collection(db, `artifacts/${appId}/public/data/maintenance_logs`), logData);
@@ -685,6 +704,7 @@ const DataManagement = ({ navigate }) => {
     const fileInputRef = useRef(null);
 
     const handleExport = async () => {
+        if (!db) return;
         const collectionsToExport = ['employees', 'machines', 'machine_logs', 'maintenance_logs', 'sales_logs', 'stock_logs', 'settings'];
         const data = {};
         for (const coll of collectionsToExport) {
@@ -732,7 +752,7 @@ const DataManagement = ({ navigate }) => {
     };
 
     const executeImport = async () => {
-        if (!importData) return;
+        if (!db || !importData) return;
         setIsImporting(true);
         setShowConfirm(false);
 
@@ -910,6 +930,7 @@ const SaleForm = ({ stock, onFinish }) => {
     const handleItemChange = (key, value) => { if (Number(value) >= 0) setSaleItems({ ...saleItems, [key]: Number(value) }); };
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!db) return;
         const itemsSold = Object.fromEntries(Object.entries(saleItems).filter(([_, v]) => v > 0));
         if (Object.keys(itemsSold).length === 0) return;
         
@@ -1040,6 +1061,7 @@ const StockUpdateForm = ({ stock, type, onFinish }) => {
     const handleUpdateChange = (key, field, value) => { setUpdateData(prev => ({ ...prev, [key]: { ...(prev[key] || {}), [field]: value } })); };
     
     const handleStockUpdate = async () => {
+        if (!db) return;
         const itemsToUpdate = Object.fromEntries(Object.entries(updateData).filter(([, val]) => val.value && Number(val.value) > 0));
         if (Object.keys(itemsToUpdate).length === 0) {
             onFinish();
