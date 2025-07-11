@@ -1,19 +1,28 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, addDoc, updateDoc, deleteDoc, query, writeBatch, getDocs, runTransaction, arrayUnion } from 'firebase/firestore';
 import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
 import { Droplets, Wrench, Package, Factory, Users, Trash2, Edit, PlusCircle, Share2, ChevronLeft, ShoppingCart, History, Plus, Minus, X, AlertTriangle, UploadCloud, FileDown, FileUp, Settings, CheckCircle, KeyRound, Eye, EyeOff, LogIn, Cake, Clock, MessageSquareWarning, ClipboardList } from 'lucide-react';
 
 // --- Firebase Configuration ---
-// This check is necessary for Netlify deployment
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'haysimo-default';
+// This new version reads configuration from Netlify's Environment Variables
+// It is important that you add these variables in your Netlify settings
+const firebaseConfigString = process.env.REACT_APP_FIREBASE_CONFIG;
+let firebaseConfig = {};
+if (firebaseConfigString) {
+    try {
+        firebaseConfig = JSON.parse(firebaseConfigString);
+    } catch (e) {
+        console.error("Could not parse Firebase config:", e);
+    }
+}
+const appId = process.env.REACT_APP_APP_ID || 'haysimo-default';
 
 // --- Initialize Firebase ---
 let app, db, auth, storage;
 // Only initialize if the config is valid
-if (firebaseConfig && Object.keys(firebaseConfig).length > 0) {
+if (firebaseConfig && firebaseConfig.apiKey) {
     try {
         app = initializeApp(firebaseConfig);
         db = getFirestore(app);
@@ -68,7 +77,7 @@ export default function App() {
     useEffect(() => {
         // If Firebase is not configured, show an error
         if (!auth) {
-            setError("Firebase is not configured. The app cannot start. Please contact the administrator.");
+            setError("Firebase is not configured. Please add the Firebase configuration to your Netlify environment variables.");
             setLoading(false);
             return;
         }
@@ -77,10 +86,8 @@ export default function App() {
                 setIsAuthReady(true);
             } else {
                 try {
-                    // This check is necessary for Netlify deployment
-                    const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-                    if (token) await signInWithCustomToken(auth, token);
-                    else await signInAnonymously(auth);
+                    // For deployed version, we will always sign in anonymously
+                    await signInAnonymously(auth);
                 } catch (err) {
                     console.error("Sign-in failed:", err);
                     setError("Could not authenticate user.");
@@ -93,7 +100,13 @@ export default function App() {
 
     // --- Data Subscription Effect ---
     useEffect(() => {
-        if (!isAuthReady || !db) return;
+        if (!isAuthReady || !db) {
+            // If the database isn't ready, stop loading and show any existing error.
+            if (!error) {
+                setLoading(false);
+            }
+            return;
+        }
         
         setLoading(true);
         const getCollPath = (collName) => `artifacts/${appId}/public/data/${collName}`;
@@ -122,14 +135,13 @@ export default function App() {
             }),
         ];
         
-        // Ensure loading is set to false after a delay
-        const timer = setTimeout(() => setLoading(false), 1500);
+        const timer = setTimeout(() => setLoading(false), 2000);
 
         return () => {
             unsubscribers.forEach(unsub => unsub());
             clearTimeout(timer);
         };
-    }, [isAuthReady]);
+    }, [isAuthReady, error]); // Added error to dependency array
 
     // --- Initial Data Seeding ---
     useEffect(() => {
@@ -199,6 +211,7 @@ export default function App() {
 }
 
 // --- Components ---
+// (The rest of the components are unchanged. Paste them here from the previous version)
 
 const Dashboard = ({ navigate, maintenanceLogs, machineLogs }) => {
     const overdueMaintenance = maintenanceLogs.filter(log => {
