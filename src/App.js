@@ -1,27 +1,31 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, addDoc, updateDoc, deleteDoc, query, writeBatch, getDocs, runTransaction, arrayUnion } from 'firebase/firestore';
 import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
-// Removed unused icons: Eye, EyeOff, LogIn
 import { Droplets, Wrench, Package, Factory, Users, Trash2, Edit, PlusCircle, Share2, ChevronLeft, ShoppingCart, History, Plus, Minus, X, AlertTriangle, UploadCloud, FileDown, FileUp, Settings, CheckCircle, KeyRound, Cake, Clock, MessageSquareWarning, ClipboardList } from 'lucide-react';
 
 // --- Firebase Configuration ---
-// This new version reads configuration from Netlify's Environment Variables
-const firebaseConfigString = process.env.REACT_APP_FIREBASE_CONFIG;
+// This version works both in local preview and on Netlify
+const firebaseConfigString = (typeof process !== 'undefined' && process.env.REACT_APP_FIREBASE_CONFIG)
+    ? process.env.REACT_APP_FIREBASE_CONFIG
+    : (typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+
 let firebaseConfig = {};
-if (firebaseConfigString) {
-    try {
-        firebaseConfig = JSON.parse(firebaseConfigString);
-    } catch (e) {
-        console.error("Could not parse Firebase config:", e);
-    }
+try {
+    firebaseConfig = JSON.parse(firebaseConfigString);
+} catch (e) {
+    console.error("Could not parse Firebase config:", e);
 }
-const appId = process.env.REACT_APP_APP_ID || 'haysimo-default';
+
+const appId = (typeof process !== 'undefined' && process.env.REACT_APP_APP_ID)
+    ? process.env.REACT_APP_APP_ID
+    : (typeof __app_id !== 'undefined' ? __app_id : 'haysimo-app');
+
 
 // --- Initialize Firebase ---
 let app, db, auth, storage;
-// Only initialize if the config is valid
+// Only initialize if the config is valid and has an API key
 if (firebaseConfig && firebaseConfig.apiKey) {
     try {
         app = initializeApp(firebaseConfig);
@@ -86,11 +90,16 @@ export default function App() {
                 setIsAuthReady(true);
             } else {
                 try {
-                    // For deployed version, we will always sign in anonymously
-                    await signInAnonymously(auth);
+                    // This handles both Netlify and local preview environments
+                    const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                    if (token) {
+                        await signInWithCustomToken(auth, token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
                 } catch (err) {
                     console.error("Sign-in failed:", err);
-                    setError("Could not authenticate user.");
+                    setError("Could not authenticate user. Please check your Firebase Authentication settings and authorized domains.");
                     setLoading(false);
                 }
             }
@@ -111,30 +120,29 @@ export default function App() {
         const getCollPath = (collName) => `artifacts/${appId}/public/data/${collName}`;
         
         const unsubscribers = [
-            onSnapshot(query(collection(db, getCollPath('employees'))), s => setEmployees(s.docs.map(d => ({ id: d.id, ...d.data() })))),
-            onSnapshot(query(collection(db, getCollPath('machines'))), s => setMachineTypes(s.docs.map(d => ({ id: d.id, ...d.data() })))),
-            onSnapshot(query(collection(db, getCollPath('machine_logs'))), s => setMachineLogs(s.docs.map(d => ({ id: d.id, ...d.data() })))),
-            onSnapshot(query(collection(db, getCollPath('maintenance_logs'))), s => setMaintenanceLogs(s.docs.map(d => ({ id: d.id, ...d.data() })))),
-            onSnapshot(query(collection(db, getCollPath('sales_logs'))), s => setSalesLogs(s.docs.map(d => ({ id: d.id, ...d.data() })))),
-            onSnapshot(query(collection(db, getCollPath('stock_logs'))), s => setStockLogs(s.docs.map(d => ({ id: d.id, ...d.data() })))),
+            onSnapshot(query(collection(db, getCollPath('employees'))), s => setEmployees(s.docs.map(d => ({ id: d.id, ...d.data() }))), (err) => { console.error(err); setError("Failed to load employees."); }),
+            onSnapshot(query(collection(db, getCollPath('machines'))), s => setMachineTypes(s.docs.map(d => ({ id: d.id, ...d.data() }))), (err) => { console.error(err); setError("Failed to load machines."); }),
+            onSnapshot(query(collection(db, getCollPath('machine_logs'))), s => setMachineLogs(s.docs.map(d => ({ id: d.id, ...d.data() }))), (err) => { console.error(err); setError("Failed to load machine logs."); }),
+            onSnapshot(query(collection(db, getCollPath('maintenance_logs'))), s => setMaintenanceLogs(s.docs.map(d => ({ id: d.id, ...d.data() }))), (err) => { console.error(err); setError("Failed to load maintenance logs."); }),
+            onSnapshot(query(collection(db, getCollPath('sales_logs'))), s => setSalesLogs(s.docs.map(d => ({ id: d.id, ...d.data() }))), (err) => { console.error(err); setError("Failed to load sales logs."); }),
+            onSnapshot(query(collection(db, getCollPath('stock_logs'))), s => setStockLogs(s.docs.map(d => ({ id: d.id, ...d.data() }))), (err) => { console.error(err); setError("Failed to load stock logs."); }),
             onSnapshot(doc(db, getCollPath('stock'), 'main'), async (docSnap) => {
                 if (docSnap.exists()) {
                     setStock(docSnap.data());
                 } else {
                     await initializeStock();
                 }
-            }),
+            }, (err) => { console.error(err); setError("Failed to load stock."); }),
             onSnapshot(doc(db, getCollPath('settings'), 'passwords'), (docSnap) => {
                 if (docSnap.exists()) {
                     setPasswords(docSnap.data());
                 } else {
                     setDoc(doc(db, getCollPath('settings'), 'passwords'), { main: '', stock: '', data: '' });
                 }
-                setLoading(false);
-            }),
+            }, (err) => { console.error(err); setError("Failed to load settings."); }),
         ];
         
-        const timer = setTimeout(() => setLoading(false), 2000);
+        const timer = setTimeout(() => setLoading(false), 2500);
 
         return () => {
             unsubscribers.forEach(unsub => unsub());
@@ -952,7 +960,6 @@ const SaleForm = ({ stock, onFinish }) => {
             await runTransaction(db, async (transaction) => {
                 const stockDoc = await transaction.get(stockDocRef);
                 if (!stockDoc.exists()) {
-                    // Fixed ESLint error: throw an Error object
                     throw new Error("Stock document does not exist!");
                 }
                 const currentStock = stockDoc.data();
@@ -1086,7 +1093,6 @@ const StockUpdateForm = ({ stock, type, onFinish }) => {
             await runTransaction(db, async (transaction) => {
                 const stockDoc = await transaction.get(stockDocRef);
                 if (!stockDoc.exists()) {
-                    // Fixed ESLint error: throw an Error object
                     throw new Error("Stock document does not exist!");
                 }
 
