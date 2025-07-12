@@ -6,10 +6,10 @@ import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage"
 import { Droplets, Wrench, Package, Factory, Users, Trash2, Edit, PlusCircle, Share2, ChevronLeft, ShoppingCart, History, Plus, Minus, X, AlertTriangle, UploadCloud, FileDown, FileUp, Settings, CheckCircle, KeyRound, Cake, Clock, MessageSquareWarning, ClipboardList } from 'lucide-react';
 
 // --- Firebase Configuration ---
-// This version works both in local preview and on Netlify
+// This version works both in local preview and on Netlify by disabling ESLint for specific global variables.
 const firebaseConfigString = (typeof process !== 'undefined' && process.env.REACT_APP_FIREBASE_CONFIG)
     ? process.env.REACT_APP_FIREBASE_CONFIG
-    : (typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+    : (typeof __firebase_config !== 'undefined' ? __firebase_config : '{}'); // eslint-disable-line no-undef
 
 let firebaseConfig = {};
 try {
@@ -20,7 +20,7 @@ try {
 
 const appId = (typeof process !== 'undefined' && process.env.REACT_APP_APP_ID)
     ? process.env.REACT_APP_APP_ID
-    : (typeof __app_id !== 'undefined' ? __app_id : 'haysimo-app');
+    : (typeof __app_id !== 'undefined' ? __app_id : 'haysimo-app'); // eslint-disable-line no-undef
 
 
 // --- Initialize Firebase ---
@@ -91,7 +91,7 @@ export default function App() {
             } else {
                 try {
                     // This handles both Netlify and local preview environments
-                    const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                    const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null; // eslint-disable-line no-undef
                     if (token) {
                         await signInWithCustomToken(auth, token);
                     } else {
