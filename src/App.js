@@ -1,9 +1,10 @@
+/* global __initial_auth_token */
 import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, addDoc, updateDoc, deleteDoc, query, writeBatch, getDocs, runTransaction, arrayUnion } from 'firebase/firestore';
 import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
-import { Droplets, Wrench, Package, Factory, Users, Trash2, Edit, PlusCircle, Share2, ChevronLeft, ShoppingCart, History, Plus, Minus, X, AlertTriangle, UploadCloud, FileDown, FileUp, Settings, CheckCircle, KeyRound, Eye, EyeOff, LogIn, Cake, Clock, MessageSquareWarning, ClipboardList } from 'lucide-react';
+import { Droplets, Wrench, Package, Factory, Users, Trash2, Edit, PlusCircle, Share2, ChevronLeft, ShoppingCart, History, Plus, Minus, X, AlertTriangle, UploadCloud, FileDown, FileUp, Settings, CheckCircle, KeyRound, Cake, Clock, MessageSquareWarning, ClipboardList } from 'lucide-react';
 
 // --- Firebase Configuration ---
 // This is your specific Firebase project configuration.
@@ -16,7 +17,6 @@ const firebaseConfig = {
   appId: "1:194491375742:web:432cf2f11c465160c7382f",
   measurementId: "G-Z1Z0RLGSGW"
 };
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'haysimo-app'; // Using your project ID as default
 
 // --- Initialize Firebase ---
 let app, db, auth, storage;
@@ -104,28 +104,26 @@ export default function App() {
         if (!isAuthReady || !db) return;
         
         setLoading(true);
-        // Using a simplified path for user-provided Firebase projects
-        const getCollPath = (collName) => `${collName}`;
-        
+        // Using root collection paths for a standalone Firebase project
         const unsubscribers = [
-            onSnapshot(query(collection(db, getCollPath('employees'))), s => setEmployees(s.docs.map(d => ({ id: d.id, ...d.data() }))), (e) => console.error("Error fetching employees:", e)),
-            onSnapshot(query(collection(db, getCollPath('machines'))), s => setMachineTypes(s.docs.map(d => ({ id: d.id, ...d.data() }))), (e) => console.error("Error fetching machines:", e)),
-            onSnapshot(query(collection(db, getCollPath('machine_logs'))), s => setMachineLogs(s.docs.map(d => ({ id: d.id, ...d.data() }))), (e) => console.error("Error fetching machine_logs:", e)),
-            onSnapshot(query(collection(db, getCollPath('maintenance_logs'))), s => setMaintenanceLogs(s.docs.map(d => ({ id: d.id, ...d.data() }))), (e) => console.error("Error fetching maintenance_logs:", e)),
-            onSnapshot(query(collection(db, getCollPath('sales_logs'))), s => setSalesLogs(s.docs.map(d => ({ id: d.id, ...d.data() }))), (e) => console.error("Error fetching sales_logs:", e)),
-            onSnapshot(query(collection(db, getCollPath('stock_logs'))), s => setStockLogs(s.docs.map(d => ({ id: d.id, ...d.data() }))), (e) => console.error("Error fetching stock_logs:", e)),
-            onSnapshot(doc(db, getCollPath('stock'), 'main'), async (docSnap) => {
+            onSnapshot(query(collection(db, 'employees')), s => setEmployees(s.docs.map(d => ({ id: d.id, ...d.data() }))), (e) => console.error("Error fetching employees:", e)),
+            onSnapshot(query(collection(db, 'machines')), s => setMachineTypes(s.docs.map(d => ({ id: d.id, ...d.data() }))), (e) => console.error("Error fetching machines:", e)),
+            onSnapshot(query(collection(db, 'machine_logs')), s => setMachineLogs(s.docs.map(d => ({ id: d.id, ...d.data() }))), (e) => console.error("Error fetching machine_logs:", e)),
+            onSnapshot(query(collection(db, 'maintenance_logs')), s => setMaintenanceLogs(s.docs.map(d => ({ id: d.id, ...d.data() }))), (e) => console.error("Error fetching maintenance_logs:", e)),
+            onSnapshot(query(collection(db, 'sales_logs')), s => setSalesLogs(s.docs.map(d => ({ id: d.id, ...d.data() }))), (e) => console.error("Error fetching sales_logs:", e)),
+            onSnapshot(query(collection(db, 'stock_logs')), s => setStockLogs(s.docs.map(d => ({ id: d.id, ...d.data() }))), (e) => console.error("Error fetching stock_logs:", e)),
+            onSnapshot(doc(db, 'stock', 'main'), async (docSnap) => {
                 if (docSnap.exists()) {
                     setStock(docSnap.data());
                 } else {
                     await initializeStock();
                 }
             }, (e) => console.error("Error fetching stock:", e)),
-            onSnapshot(doc(db, getCollPath('settings'), 'passwords'), (docSnap) => {
+            onSnapshot(doc(db, 'settings', 'passwords'), (docSnap) => {
                 if (docSnap.exists()) {
                     setPasswords(docSnap.data());
                 } else {
-                    setDoc(doc(db, getCollPath('settings'), 'passwords'), { main: '', stock: '', data: '' });
+                    setDoc(doc(db, 'settings', 'passwords'), { main: '', stock: '', data: '' });
                 }
                 setLoading(false);
             }, (e) => { console.error("Error fetching passwords:", e); setLoading(false); }),
