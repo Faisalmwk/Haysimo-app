@@ -1,40 +1,33 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, addDoc, updateDoc, deleteDoc, query, writeBatch, getDocs, runTransaction, arrayUnion } from 'firebase/firestore';
 import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
 import { Droplets, Wrench, Package, Factory, Users, Trash2, Edit, PlusCircle, Share2, ChevronLeft, ShoppingCart, History, Plus, Minus, X, AlertTriangle, UploadCloud, FileDown, FileUp, Settings, CheckCircle, KeyRound, Cake, Clock, MessageSquareWarning, ClipboardList } from 'lucide-react';
 
 // --- Firebase Configuration ---
-// This version works both in local preview and on Netlify by disabling ESLint for specific global variables.
-const firebaseConfigString = (typeof process !== 'undefined' && process.env.REACT_APP_FIREBASE_CONFIG)
-    ? process.env.REACT_APP_FIREBASE_CONFIG
-    : (typeof __firebase_config !== 'undefined' ? __firebase_config : '{}'); // eslint-disable-line no-undef
-
-let firebaseConfig = {};
-try {
-    firebaseConfig = JSON.parse(firebaseConfigString);
-} catch (e) {
-    console.error("Could not parse Firebase config:", e);
-}
-
-const appId = (typeof process !== 'undefined' && process.env.REACT_APP_APP_ID)
-    ? process.env.REACT_APP_APP_ID
-    : (typeof __app_id !== 'undefined' ? __app_id : 'haysimo-app'); // eslint-disable-line no-undef
-
+// Your personal Firebase keys are now directly in the code.
+// This is done to ensure the app works on Netlify.
+const firebaseConfig = {
+  apiKey: "AIzaSyAcQ1xyC8CUaSqLbX5NIuv1n19iatrGu7s",
+  authDomain: "haysimo-app.firebaseapp.com",
+  projectId: "haysimo-app",
+  storageBucket: "haysimo-app.firebasestorage.app",
+  messagingSenderId: "194491375742",
+  appId: "1:194491375742:web:432cf2f11c465160c7382f",
+  measurementId: "G-Z1Z0RLGSGW"
+};
+const appId = "haysimo-app";
 
 // --- Initialize Firebase ---
 let app, db, auth, storage;
-// Only initialize if the config is valid and has an API key
-if (firebaseConfig && firebaseConfig.apiKey) {
-    try {
-        app = initializeApp(firebaseConfig);
-        db = getFirestore(app);
-        auth = getAuth(app);
-        storage = getStorage(app);
-    } catch (error) {
-        console.error("Firebase initialization failed:", error);
-    }
+try {
+    app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    auth = getAuth(app);
+    storage = getStorage(app);
+} catch (error) {
+    console.error("Firebase initialization failed:", error);
 }
 
 // --- Conversion Constants ---
@@ -79,9 +72,8 @@ export default function App() {
 
     // --- Authentication Effect ---
     useEffect(() => {
-        // If Firebase is not configured, show an error
         if (!auth) {
-            setError("Firebase is not configured. Please add the Firebase configuration to your Netlify environment variables.");
+            setError("Firebase could not be initialized. Please check the configuration.");
             setLoading(false);
             return;
         }
@@ -90,16 +82,10 @@ export default function App() {
                 setIsAuthReady(true);
             } else {
                 try {
-                    // This handles both Netlify and local preview environments
-                    const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null; // eslint-disable-line no-undef
-                    if (token) {
-                        await signInWithCustomToken(auth, token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
+                    await signInAnonymously(auth);
                 } catch (err) {
                     console.error("Sign-in failed:", err);
-                    setError("Could not authenticate user. Please check your Firebase Authentication settings and authorized domains.");
+                    setError("Could not authenticate user. Check Firebase settings.");
                     setLoading(false);
                 }
             }
