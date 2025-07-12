@@ -282,7 +282,7 @@ const Dashboard = ({ navigate, maintenanceLogs, machineLogs }) => {
                         <div className={`p-3 rounded-full ${item.bg} mb-3`}>
                             <item.icon className={`h-8 w-8 ${item.color}`} />
                         </div>
-                        <h2 className="text-sm md:text-base font-semibold text-slate-700">{item.name}</h2>
+                        <h2 className="text-sm md:text-base font-semibold text-blue-600">{item.name}</h2>
                     </div>
                 ))}
             </div>
